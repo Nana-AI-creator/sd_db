@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>毎日の記録</title>
+<style>
+:root { --bg:#f6f5f2; --card:#fff; --ink:#222; --sub:#666; --accent:#2f6f5e; --line:#ddd; }
+* { box-sizing:border-box; }
+body { margin:0; font-family:system-ui, "Noto Sans JP", sans-serif; background:var(--bg); color:var(--ink); font-size:16px; }
+header { background:var(--accent); color:#fff; padding:12px 16px; font-weight:bold; font-size:18px; }
+main { padding:12px; max-width:560px; margin:0 auto; }
+.card { background:var(--card); border-radius:10px; padding:12px; margin-bottom:12px; box-shadow:0 1px 2px rgba(0,0,0,.08); }
+h2 { font-size:15px; margin:0 0 6px; color:var(--accent); }
+.t { display:block; font-size:13px; color:var(--sub); margin:10px 0 4px; }
+input[type=date], input[type=number], textarea { width:100%; font-size:17px; padding:8px; border:1px solid var(--line); border-radius:8px; background:#fff; }
+textarea { min-height:60px; }
+.seg { display:flex; flex-wrap:wrap; gap:6px; }
+.seg button { flex:1 1 auto; min-width:60px; padding:10px 6px; font-size:15px; border:1px solid var(--line); background:#fafafa; border-radius:8px; color:var(--ink); }
+.seg button.on { background:var(--accent); color:#fff; border-color:var(--accent); }
+.row { display:flex; gap:8px; }
+.row > div { flex:1; }
+.btn { width:100%; padding:14px; font-size:17px; border:none; border-radius:10px; background:var(--accent); color:#fff; margin-top:8px; }
+.btn.sub { background:#fff; color:var(--accent); border:1px solid var(--accent); }
+.btn.del { background:#fff; color:#a33; border:1px solid #a33; }
+#msg { text-align:center; color:var(--accent); min-height:22px; margin:6px 0; font-weight:bold; }
+table { width:100%; border-collapse:collapse; font-size:13px; }
+td, th { border-bottom:1px solid var(--line); padding:6px 4px; text-align:left; }
+tbody tr { cursor:pointer; }
+.small { font-size:12px; color:var(--sub); line-height:1.5; }
+#out { display:none; width:100%; min-height:160px; font-size:12px; margin-top:8px; }
+</style>
+</head>
+<body>
+<header>毎日の記録（睡眠・運動・血糖）</header>
+<main>
+
+<div class="card">
+  <span class="t">日付（目覚めた日）</span>
+  <input type="date" id="date">
+  <span class="t">場所</span>
+  <div class="seg" data-key="place" data-options="KL,フィリピン,日本"></div>
+</div>
+
+<div class="card">
+  <h2>前夜（この朝に目覚める前の夜）</h2>
+  <div class="row">
+    <div><span class="t">お酒・寝る前（杯）</span><input type="number" id="alcohol_bed" inputmode="numeric" min="0" step="1"></div>
+    <div><span class="t">お酒・夜中に追加（杯）</span><input type="number" id="alcohol_night" inputmode="numeric" min="0" step="1"></div>
+  </div>
+  <span class="t">夕食</span>
+  <div class="seg" data-key="dinner" data-options="美樹さん,外食,自炊,その他"></div>
+  <span class="t">夕食の糖質</span>
+  <div class="seg" data-key="dinner_carb" data-options="普通,糖質制限"></div>
+  <span class="t">夕食後の追加（複数選べます）</span>
+  <div class="seg" data-key="konbini" data-options="ピーナッツ,コンビニ" data-multi="1"></div>
+</div>
+
+<div class="card">
+  <h2>朝</h2>
+  <div class="row">
+    <div><span class="t">朝の血糖（測った日だけ）</span><input type="number" id="glucose" inputmode="decimal" min="0" step="0.1"></div>
+    <div><span class="t">体重（測った日だけ）</span><input type="number" id="weight" inputmode="decimal" min="0" step="0.1"></div>
+  </div>
+  <div class="row">
+    <div><span class="t">血糖の単位</span><div class="seg" data-key="gunit" data-options="mg/dL,mmol/L"></div></div>
+    <div><span class="t">体重の単位</span><div class="seg" data-key="wunit" data-options="kg,lbs"></div></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>朝のラン</h2>
+  <span class="t">走った分数（目標30分に対して）</span>
+  <input type="number" id="am_min" inputmode="numeric" min="0" step="1">
+  <span class="t">走る前の調子</span>
+  <div class="seg" data-key="am_feel" data-options="快適,普通,だるい,苦痛"></div>
+</div>
+
+<div class="card">
+  <h2>その日（夜に入力）</h2>
+  <span class="t">昼食</span>
+  <div class="seg" data-key="lunch" data-options="普通,糖質制限"></div>
+  <span class="t">夕方のラン：走った分数（目標60分に対して）</span>
+  <input type="number" id="pm_min" inputmode="numeric" min="0" step="1">
+  <span class="t">夕方のラン：走る前の調子</span>
+  <div class="seg" data-key="pm_feel" data-options="快適,普通,だるい,苦痛"></div>
+  <span class="t">昼寝</span>
+  <div class="seg" data-key="nap" data-options="なし,あり"></div>
+  <span class="t">メモ</span>
+  <textarea id="memo"></textarea>
+</div>
+
+<div id="msg"></div>
+<button class="btn" id="saveBtn" type="button">保存</button>
+
+<div class="card" style="margin-top:16px">
+  <h2>最近の記録（行を押すと編集）</h2>
+  <table>
+    <thead><tr><th>日付</th><th>場所</th><th>朝</th><th>夕</th><th>お酒</th></tr></thead>
+    <tbody id="list"></tbody>
+  </table>
+  <p class="small" id="count"></p>
+</div>
+
+<div class="card">
+  <h2>書き出しと控え</h2>
+  <button class="btn" id="copy7" type="button">直近7日をコピー</button>
+  <button class="btn sub" id="dlAll" type="button">全部をダウンロード（控え）</button>
+  <button class="btn sub" id="impBtn" type="button">控えのCSVを読み込む</button>
+  <input type="file" id="impFile" accept=".csv,text/csv" style="display:none">
+  <button class="btn del" id="delBtn" type="button">この日付の記録を削除</button>
+  <textarea id="out" readonly></textarea>
+  <p class="small">データはこのスマホの Chrome の中だけにあります。Chrome の閲覧データを消すと記録も消えるので、週に一度「全部をダウンロード」で控えを取ってください。</p>
+</div>
+
+</main>
+<script>
+var KEY = 'dailyRecordV1';
+var FIELDS = [
+  ['date','日付'], ['place','場所'],
+  ['alcohol_bed','前夜お酒_寝る前'], ['alcohol_night','前夜お酒_夜中'],
+  ['dinner','前夜夕食'], ['dinner_carb','前夜夕食_糖質'], ['konbini','前夜追加'],
+  ['glucose','朝の血糖mgdL'], ['weight','体重kg'],
+  ['am_min','朝_分'], ['am_feel','朝_走る前の調子'],
+  ['lunch','昼食'],
+  ['pm_min','夕方_分'], ['pm_feel','夕方_走る前の調子'],
+  ['nap','昼寝'], ['memo','メモ']
+];
+var INPUT_KEYS = ['alcohol_bed','alcohol_night','glucose','weight','am_min','pm_min','memo'];
+var SEG_KEYS = ['place','dinner','dinner_carb','konbini','am_feel','lunch','pm_feel','nap'];
+var DEFAULTS = { konbini: 'ピーナッツ', lunch: '普通', dinner_carb: '糖質制限' };
+
+var data = load();
+var msgTimer = null;
+
+function load() {
+  try {
+    var s = localStorage.getItem(KEY);
+    if (s) { return JSON.parse(s); }
+  } catch (e) {}
+  return {};
+}
+function store() {
+  try { localStorage.setItem(KEY, JSON.stringify(data)); return true; }
+  catch (e) { msg('保存できませんでした'); return false; }
+}
+function pad(n) {
+  if (n < 10) { return '0' + n; }
+  return String(n);
+}
+function ymd(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function today() { return ymd(new Date()); }
+function daysAgo(n) { var d = new Date(); d.setDate(d.getDate() - n); return ymd(d); }
+function msg(t) {
+  var el = document.getElementById('msg');
+  el.textContent = t;
+  if (msgTimer) { clearTimeout(msgTimer); }
+  msgTimer = setTimeout(function () { el.textContent = ''; }, 2500);
+}
+function val(v) {
+  if (v === undefined || v === null) { return ''; }
+  return String(v);
+}
+
+/* 選択ボタン */
+function isMulti(el) { return el.getAttribute('data-multi') === '1'; }
+function buildSegs() {
+  var segs = document.querySelectorAll('.seg');
+  for (var i = 0; i < segs.length; i++) {
+    (function (el) {
+      var opts = el.getAttribute('data-options').split(',');
+      opts.forEach(function (o) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = o;
+        b.addEventListener('click', function () {
+          if (isMulti(el)) { b.classList.toggle('on'); return; }
+          var wasOn = b.classList.contains('on');
+          var all = el.querySelectorAll('button');
+          for (var j = 0; j < all.length; j++) { all[j].classList.remove('on'); }
+          if (!wasOn) { b.classList.add('on'); }
+        });
+        el.appendChild(b);
+      });
+    })(segs[i]);
+  }
+}
+function getSeg(key) {
+  var el = document.querySelector('.seg[data-key="' + key + '"]');
+  var ons = el.querySelectorAll('button.on');
+  var vals = [];
+  for (var i = 0; i < ons.length; i++) { vals.push(ons[i].textContent); }
+  if (isMulti(el)) {
+    if (vals.length === 0) { return 'なし'; }
+    return vals.join('+');
+  }
+  if (vals.length > 0) { return vals[0]; }
+  return '';
+}
+function setSeg(key, v) {
+  var el = document.querySelector('.seg[data-key="' + key + '"]');
+  var parts = [v];
+  if (isMulti(el)) { parts = v.split('+'); }
+  var all = el.querySelectorAll('button');
+  for (var i = 0; i < all.length; i++) {
+    if (parts.indexOf(all[i].textContent) >= 0) { all[i].classList.add('on'); }
+    else { all[i].classList.remove('on'); }
+  }
+}
+
+/* フォーム */
+function readForm() {
+  var rec = { date: document.getElementById('date').value };
+  INPUT_KEYS.forEach(function (k) { rec[k] = document.getElementById(k).value.trim(); });
+  SEG_KEYS.forEach(function (k) { rec[k] = getSeg(k); });
+  if (rec.glucose !== '' && getSeg('gunit') === 'mmol/L') {
+    rec.glucose = String(Math.round(parseFloat(rec.glucose) * 18));
+  }
+  if (rec.weight !== '' && getSeg('wunit') === 'lbs') {
+    rec.weight = (parseFloat(rec.weight) * 0.45359).toFixed(1);
+  }
+  return rec;
+}
+function fillForm(rec) {
+  INPUT_KEYS.forEach(function (k) { document.getElementById(k).value = val(rec[k]); });
+  SEG_KEYS.forEach(function (k) { setSeg(k, val(rec[k])); });
+  setSeg('gunit', 'mg/dL');
+  setSeg('wunit', 'kg');
+}
+function sortedDates() { return Object.keys(data).sort().reverse(); }
+function lastPlace() {
+  var ds = sortedDates();
+  for (var i = 0; i < ds.length; i++) {
+    if (data[ds[i]].place) { return data[ds[i]].place; }
+  }
+  return 'KL';
+}
+function loadDate() {
+  var d = document.getElementById('date').value;
+  if (data[d]) { fillForm(data[d]); return; }
+  fillForm({});
+  setSeg('place', lastPlace());
+  Object.keys(DEFAULTS).forEach(function (k) { setSeg(k, DEFAULTS[k]); });
+}
+
+/* 一覧 */
+function renderList() {
+  var tb = document.getElementById('list');
+  tb.innerHTML = '';
+  var ds = sortedDates().slice(0, 14);
+  ds.forEach(function (d) {
+    var r = data[d];
+    var tr = document.createElement('tr');
+    var drink = val(r.alcohol_bed);
+    if (r.alcohol_night) { drink = drink + '+' + r.alcohol_night; }
+    [d.slice(5), val(r.place), val(r.am_min), val(r.pm_min), drink].forEach(function (c) {
+      var td = document.createElement('td');
+      td.textContent = c;
+      tr.appendChild(td);
+    });
+    tr.addEventListener('click', function () {
+      document.getElementById('date').value = d;
+      loadDate();
+      window.scrollTo(0, 0);
+    });
+    tb.appendChild(tr);
+  });
+  document.getElementById('count').textContent = '記録は全部で ' + Object.keys(data).length + ' 日分';
+}
+
+/* CSV */
+function csvCell(v) {
+  v = val(v);
+  if (v.indexOf('"') >= 0 || v.indexOf(',') >= 0 || v.indexOf('\n') >= 0) {
+    v = '"' + v.split('"').join('""') + '"';
+  }
+  return v;
+}
+function toCSV(dates) {
+  var lines = [FIELDS.map(function (f) { return f[1]; }).join(',')];
+  dates.forEach(function (d) {
+    var r = data[d];
+    lines.push(FIELDS.map(function (f) { return csvCell(r[f[0]]); }).join(','));
+  });
+  return lines.join('\n') + '\n';
+}
+function parseCSV(text) {
+  if (text.charCodeAt(0) === 0xFEFF) { text = text.slice(1); }
+  var rows = [], row = [], cell = '', q = false;
+  for (var i = 0; i < text.length; i++) {
+    var c = text.charAt(i);
+    if (q) {
+      if (c === '"') {
+        if (text.charAt(i + 1) === '"') { cell += '"'; i++; }
+        else { q = false; }
+      } else { cell += c; }
+    } else {
+      if (c === '"') { q = true; }
+      else if (c === ',') { row.push(cell); cell = ''; }
+      else if (c === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
+      else if (c === '\r') { }
+      else { cell += c; }
+    }
+  }
+  if (cell !== '' || row.length > 0) { row.push(cell); rows.push(row); }
+  return rows;
+}
+function showOut(text) {
+  var o = document.getElementById('out');
+  o.style.display = 'block';
+  o.value = text;
+  o.focus();
+  o.select();
+}
+
+/* ボタン */
+document.getElementById('saveBtn').addEventListener('click', function () {
+  var rec = readForm();
+  if (!rec.date) { msg('日付を入れてください'); return; }
+  data[rec.date] = rec;
+  if (store()) {
+    fillForm(rec);
+    renderList();
+    msg(rec.date + ' を保存しました');
+  }
+});
+document.getElementById('date').addEventListener('change', loadDate);
+
+document.getElementById('copy7').addEventListener('click', function () {
+  var from = daysAgo(6);
+  var ds = Object.keys(data).filter(function (d) { return d >= from; }).sort();
+  if (ds.length === 0) { msg('直近7日の記録がありません'); return; }
+  var csv = toCSV(ds);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(csv).then(function () {
+      msg('直近7日（' + ds.length + '日分）をコピーしました');
+    }, function () {
+      showOut(csv);
+      msg('下の欄を長押ししてコピーしてください');
+    });
+  } else {
+    showOut(csv);
+    msg('下の欄を長押ししてコピーしてください');
+  }
+});
+
+document.getElementById('dlAll').addEventListener('click', function () {
+  var ds = Object.keys(data).sort();
+  if (ds.length === 0) { msg('記録がありません'); return; }
+  var blob = new Blob([toCSV(ds)], { type: 'text/csv' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'kiroku_' + today().split('-').join('') + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  msg('ダウンロードしました');
+});
+
+document.getElementById('impBtn').addEventListener('click', function () {
+  document.getElementById('impFile').click();
+});
+document.getElementById('impFile').addEventListener('change', function (ev) {
+  var f = ev.target.files[0];
+  if (!f) { return; }
+  var reader = new FileReader();
+  reader.onload = function () {
+    var rows = parseCSV(String(reader.result));
+    if (rows.length < 2) { msg('読み込める行がありません'); return; }
+    var head = rows[0];
+    var idx = {};
+    FIELDS.forEach(function (fd) {
+      var p = head.indexOf(fd[1]);
+      if (p >= 0) { idx[fd[0]] = p; }
+    });
+    if (idx.date === undefined) { msg('日付の列が見つかりません'); return; }
+    if (!confirm((rows.length - 1) + ' 行を読み込みます。同じ日付の記録は上書きされます。')) { return; }
+    var n = 0;
+    for (var i = 1; i < rows.length; i++) {
+      var r = rows[i];
+      var d = val(r[idx.date]).trim();
+      if (!d) { continue; }
+      var rec = {};
+      FIELDS.forEach(function (fd) {
+        if (idx[fd[0]] !== undefined) { rec[fd[0]] = val(r[idx[fd[0]]]); }
+        else { rec[fd[0]] = ''; }
+      });
+      rec.date = d;
+      data[d] = rec;
+      n++;
+    }
+    if (store()) { renderList(); loadDate(); msg(n + ' 日分を読み込みました'); }
+    ev.target.value = '';
+  };
+  reader.readAsText(f, 'UTF-8');
+});
+
+document.getElementById('delBtn').addEventListener('click', function () {
+  var d = document.getElementById('date').value;
+  if (!data[d]) { msg('この日付の記録はありません'); return; }
+  if (!confirm(d + ' の記録を削除します')) { return; }
+  delete data[d];
+  if (store()) { renderList(); loadDate(); msg(d + ' を削除しました'); }
+});
+
+/* はじめに */
+buildSegs();
+document.getElementById('date').value = today();
+loadDate();
+renderList();
+if (navigator.storage && navigator.storage.persist) { navigator.storage.persist(); }
+</script>
+</body>
+</html>
