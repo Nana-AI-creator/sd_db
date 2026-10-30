@@ -70,22 +70,30 @@ tbody tr { cursor:pointer; }
 
 <div class="card">
   <h2>朝のラン</h2>
-  <span class="t">走った分数（目標30分に対して）</span>
-  <input type="number" id="am_min" inputmode="numeric" min="0" step="1">
   <span class="t">走る前の調子</span>
   <div class="seg" data-key="am_feel" data-options="快適,普通,だるい,苦痛"></div>
+  <span class="t">走る間の調子</span>
+  <div class="seg" data-key="am_during" data-options="快適,普通,だるい,苦痛"></div>
+  <span class="t">走った分数（目標30分に対して）</span>
+  <input type="number" id="am_min" inputmode="numeric" min="0" step="1">
 </div>
 
 <div class="card">
   <h2>その日（夜に入力）</h2>
   <span class="t">昼食</span>
   <div class="seg" data-key="lunch" data-options="普通,糖質制限"></div>
-  <span class="t">夕方のラン：走った分数（目標60分に対して）</span>
-  <input type="number" id="pm_min" inputmode="numeric" min="0" step="1">
   <span class="t">夕方のラン：走る前の調子</span>
   <div class="seg" data-key="pm_feel" data-options="快適,普通,だるい,苦痛"></div>
+  <span class="t">夕方のラン：走る間の調子</span>
+  <div class="seg" data-key="pm_during" data-options="快適,普通,だるい,苦痛"></div>
+  <span class="t">夕方のラン：走った分数（目標60分に対して）</span>
+  <input type="number" id="pm_min" inputmode="numeric" min="0" step="1">
   <span class="t">昼寝</span>
   <div class="seg" data-key="nap" data-options="なし,あり"></div>
+  <div id="napWrap" style="display:none">
+    <span class="t">昼寝の時間（0-180分）</span>
+    <input type="number" id="nap_min" inputmode="numeric" min="0" max="180" step="1">
+  </div>
   <span class="t">メモ</span>
   <textarea id="memo"></textarea>
 </div>
@@ -121,13 +129,13 @@ var FIELDS = [
   ['alcohol_bed','前夜お酒_寝る前'], ['alcohol_night','前夜お酒_夜中'],
   ['dinner','前夜夕食'], ['dinner_carb','前夜夕食_糖質'], ['konbini','前夜追加'],
   ['glucose','朝の血糖mgdL'], ['weight','体重kg'],
-  ['am_min','朝_分'], ['am_feel','朝_走る前の調子'],
+  ['am_feel','朝_走る前の調子'], ['am_during','朝_走る間の調子'], ['am_min','朝_分'],
   ['lunch','昼食'],
-  ['pm_min','夕方_分'], ['pm_feel','夕方_走る前の調子'],
-  ['nap','昼寝'], ['memo','メモ']
+  ['pm_feel','夕方_走る前の調子'], ['pm_during','夕方_走る間の調子'], ['pm_min','夕方_分'],
+  ['nap','昼寝'], ['nap_min','昼寝_分'], ['memo','メモ']
 ];
-var INPUT_KEYS = ['alcohol_bed','alcohol_night','glucose','weight','am_min','pm_min','memo'];
-var SEG_KEYS = ['place','dinner','dinner_carb','konbini','am_feel','lunch','pm_feel','nap'];
+var INPUT_KEYS = ['alcohol_bed','alcohol_night','glucose','weight','am_min','pm_min','nap_min','memo'];
+var SEG_KEYS = ['place','dinner','dinner_carb','konbini','am_feel','am_during','lunch','pm_feel','pm_during','nap'];
 var DEFAULTS = { konbini: 'ピーナッツ', lunch: '普通', dinner_carb: '糖質制限' };
 
 var data = load();
@@ -179,6 +187,7 @@ function buildSegs() {
           var all = el.querySelectorAll('button');
           for (var j = 0; j < all.length; j++) { all[j].classList.remove('on'); }
           if (!wasOn) { b.classList.add('on'); }
+          if (el.getAttribute('data-key') === 'nap') { updateNap(); }
         });
         el.appendChild(b);
       });
@@ -206,6 +215,14 @@ function setSeg(key, v) {
     if (parts.indexOf(all[i].textContent) >= 0) { all[i].classList.add('on'); }
     else { all[i].classList.remove('on'); }
   }
+  if (key === 'nap') { updateNap(); }
+}
+
+/* 昼寝の時間 */
+function updateNap() {
+  var on = getSeg('nap') === 'あり';
+  document.getElementById('napWrap').style.display = on ? 'block' : 'none';
+  if (!on) { document.getElementById('nap_min').value = ''; }
 }
 
 /* フォーム */
@@ -213,6 +230,8 @@ function readForm() {
   var rec = { date: document.getElementById('date').value };
   INPUT_KEYS.forEach(function (k) { rec[k] = document.getElementById(k).value.trim(); });
   SEG_KEYS.forEach(function (k) { rec[k] = getSeg(k); });
+  if (rec.nap !== 'あり') { rec.nap_min = ''; }
+  if (rec.nap_min !== '' && parseFloat(rec.nap_min) > 180) { rec.nap_min = '180'; }
   if (rec.glucose !== '' && getSeg('gunit') === 'mmol/L') {
     rec.glucose = String(Math.round(parseFloat(rec.glucose) * 18));
   }
@@ -317,9 +336,13 @@ function showOut(text) {
 document.getElementById('saveBtn').addEventListener('click', function () {
   var rec = readForm();
   if (!rec.date) { msg('日付を入れてください'); return; }
-  data[rec.date] = rec;
+  var merged = {};
+  var old = data[rec.date] || {};
+  Object.keys(old).forEach(function (k) { merged[k] = old[k]; });
+  Object.keys(rec).forEach(function (k) { merged[k] = rec[k]; });
+  data[rec.date] = merged;
   if (store()) {
-    fillForm(rec);
+    fillForm(merged);
     renderList();
     msg(rec.date + ' を保存しました');
   }
@@ -374,16 +397,21 @@ document.getElementById('impFile').addEventListener('change', function (ev) {
       if (p >= 0) { idx[fd[0]] = p; }
     });
     if (idx.date === undefined) { msg('日付の列が見つかりません'); return; }
-    if (!confirm((rows.length - 1) + ' 行を読み込みます。同じ日付の記録は上書きされます。')) { return; }
+    if (!confirm((rows.length - 1) + ' 行を読み込みます。同じ日付の記録は、CSVに値がある項目だけ更新し、既存の記録は消しません。')) { return; }
     var n = 0;
     for (var i = 1; i < rows.length; i++) {
       var r = rows[i];
       var d = val(r[idx.date]).trim();
       if (!d) { continue; }
       var rec = {};
+      var old = data[d] || {};
       FIELDS.forEach(function (fd) {
-        if (idx[fd[0]] !== undefined) { rec[fd[0]] = val(r[idx[fd[0]]]); }
-        else { rec[fd[0]] = ''; }
+        var k = fd[0];
+        var incoming = '';
+        if (idx[k] !== undefined) { incoming = val(r[idx[k]]); }
+        if (incoming !== '') { rec[k] = incoming; }
+        else if (old[k] !== undefined) { rec[k] = old[k]; }
+        else { rec[k] = ''; }
       });
       rec.date = d;
       data[d] = rec;
